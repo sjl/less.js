@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+var usage = "\
+usage: lessc [-w [-i INTERVAL]] source [destination]\n\
+\n\
+Miscellaneous:\n\
+  -h, --help               display this help and exit\n\
+  -v, --version            print version information and exit\n\
+\n\
+Watching files:\n\
+  -w, --watch              watch SOURCE and render it when it changes\n\
+  -i, --interval INTERVAL  check SOURCE every INTERVAL seconds (default: 0.5)\
+";
+
 var path = require('path'),
     fs = require('fs'),
     sys = require('sys');
@@ -12,9 +24,21 @@ require.paths.unshift(path.join(bin_path, '..', '..', 'lib'));
 
 var less = require('less');
 var args = process.argv.slice(1);
+var watch = false;
+var interval = false;
 
 args = args.filter(function (arg) {
     var match;
+
+    if (interval == true) {
+        match = arg.match(/^[0-9.]+$/i);
+        if (!match) {
+            sys.puts("lessc: invalid interval");
+            process.exit(1);
+        }
+        interval = parseFloat(match[0]) * 1000;
+        return false;
+    }
 
     if (match = arg.match(/^--?([a-z][a-z-]*)$/i)) { arg = match[1] }
     else { return arg }
@@ -26,19 +50,25 @@ args = args.filter(function (arg) {
             process.exit(0);
         case 'h':
         case 'help':
-            sys.puts("usage: lessc source [destination]");
+            sys.puts(usage);
             process.exit(0);
+        case 'w':
+        case 'watch':
+            watch = true;
+            break;
+        case 'i':
+        case 'interval':
+            interval = true;
+            break;
     }
 });
 
+if (!interval) { interval = 500 };
+
 var input = args[1];
-if (input && input[0] != '/') {
-    input = path.join(process.cwd(), input);
-}
+if (input && input[0] != '/') { input = path.join(process.cwd(), input); }
 var output = args[2];
-if (output && output[0] != '/') {
-    output = path.join(process.cwd(), output);
-}
+if (output && output[0] != '/') { output = path.join(process.cwd(), output); }
 
 var css, fd, tree;
 
@@ -47,30 +77,42 @@ if (! input) {
     process.exit(1);
 }
 
-fs.stat(input, function (e, stats) {
-    if (e) {
-        sys.puts("lessc: " + e.message);
-        process.exit(1);
-    }
-    fs.open(input, process.O_RDONLY, stats.mode, function (e, fd) {
-        fs.read(fd, stats.size, 0, "utf8", function (e, data) {
-            new(less.Parser)({
-                paths: [path.dirname(input)],
-                filename: input
-            }).parse(data, function (err, tree) {
-                if (err) {
-                    less.writeError(err);
-                } else {
-                    css = tree.toCSS();
-                    if (output) {
-                        fd = fs.openSync(output, "w");
-                        fs.writeSync(fd, css, 0, "utf8");
+function render() {
+    fs.stat(input, function (e, stats) {
+        if (e) {
+            sys.puts("lessc: " + e.message);
+            process.exit(1);
+        }
+        fs.open(input, process.O_RDONLY, stats.mode, function (e, fd) {
+            fs.read(fd, stats.size, 0, "utf8", function (e, data) {
+                new(less.Parser)({
+                    paths: [path.dirname(input)],
+                    filename: input
+                }).parse(data, function (err, tree) {
+                    if (err) {
+                        less.writeError(err);
                     } else {
-                        sys.print(css);
+                        css = tree.toCSS();
+                        if (output) {
+                            fd = fs.openSync(output, "w");
+                            fs.writeSync(fd, css, 0, "utf8");
+                        } else {
+                            sys.print(css);
+                        }
                     }
-                }
+                });
             });
         });
     });
-});
+}
 
+if (watch) {
+    render();
+    fs.watchFile(input, {interval: interval}, function (curr, prev) {
+        if (curr.mtime > prev.mtime) {
+            render();
+        }
+    });
+} else {
+    render();
+}
