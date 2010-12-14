@@ -14,7 +14,12 @@
 }
 
 .hidden() {
-  color: transparent;
+  color: transparent; // asd
+}
+
+#hidden {
+  .hidden;
+  .hidden();
 }
 
 .two-args {
@@ -90,3 +95,13 @@ body {
     width: @var;
 }
 #var-inside { .var-inside; }
+
+// # mixins
+
+#id-mixin () {
+    color: red;
+}
+.id-class {
+    #id-mixin();
+    #id-mixin;
+}

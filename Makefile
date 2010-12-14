@@ -24,12 +24,15 @@ less:
 	@@mkdir -p dist
 	@@touch ${DIST}
 	@@cat ${HEADER} | sed s/@VERSION/${VERSION}/ > ${DIST}
-	@@cat build/ecma-5.js\
+	@@echo "(function (window, undefined) {" >> ${DIST}
+	@@cat build/require.js\
+	      build/ecma-5.js\
 	      ${SRC}/parser.js\
 	      ${SRC}/functions.js\
 	      ${SRC}/tree/*.js\
 	      ${SRC}/tree.js\
 	      ${SRC}/browser.js >> ${DIST}
+	@@echo "})(window);" >> ${DIST}
 	@@echo ${DIST} built.
 
 min: less
@@ -37,5 +40,18 @@ min: less
 	@@cat ${HEADER} | sed s/@VERSION/${VERSION}/ > ${DIST_MIN}
 	@@java -jar build/compiler.jar\
 		     --js ${DIST} >> ${DIST_MIN}
+
+clean:
+	git rm dist/*
+
+dist: clean min
+	git add dist/*
+	git commit -a -m "(dist) build ${VERSION}"
+	git archive master --prefix=less/ -o less-${VERSION}.tar.gz
+	npm publish less-${VERSION}.tar.gz
+
+stable:
+	npm tag less ${VERSION} stable
+
 
 .PHONY: test benchmark

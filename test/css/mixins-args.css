@@ -1,3 +1,7 @@
+#hidden {
+  color: transparent;
+  color: transparent;
+}
 .two-args {
   color: blue;
   width: 10px;
@@ -44,4 +48,8 @@ body {
 }
 #var-inside {
   width: 10px;
+}
+.id-class {
+  color: red;
+  color: red;
 }
